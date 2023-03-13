@@ -10,6 +10,75 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torch 
 import torchvision
+import os
+import glob
+import math
+
+class language():
+    def __init__(self):
+        self.path = "languageID"
+        self.languages = ['e', 'j', 's']
+    def read_text_file(self, file_path):
+        with open(file_path, 'r') as f:
+            contents = f.read()
+        return contents
+    def run(self):
+        self.global_count_dict = {'e':{}, 'j':{}, 's': {}}
+
+        for language in self.languages:
+            dict = {}
+            for file in glob.glob(f"{path}/{language}[0-9].txt"):
+                if file.endswith(".txt"):
+                    file_path = f"{file}"
+                    contents = self.read_text_file(file_path)
+                for char in contents:
+                    if char == "\n":
+                        continue
+                    else:
+                        if dict.get(char) == None:
+                            dict[char] = 1
+                        else:
+                            dict[char] = dict[char] + 1   
+            self.global_count_dict[language] = dict
+
+        global_ccp = {'e':{}, 'j':{}, 's': {}}
+        for language in self.languages:
+            ccp = {}
+            total = 0
+            for char in sorted(self.global_count_dict[language].keys()):
+                total = total + self.global_count_dict[language][char]
+            for char in sorted(self.global_count_dict[language].keys()):
+                if ccp.get(char) == None:
+                    ccp[char] =  float(self.global_count_dict[language][char] + 0.5)/ (total + (27 * 0.5))
+            global_ccp[language] = ccp
+
+        test_file = f"{self.path}/e10.txt"
+
+    def predict(self, test_file):
+        x_vector = {}
+        for char in self.read_text_file(test_file):
+            if char == "\n":
+                continue
+            else:
+                if x_vector.get(char) == None:
+                    x_vector[char] = 1
+                else:
+                    x_vector[char] = x_vector[char] + 1   
+
+        log_likelihood =  {'e': float(0), 'j': float(0), 's': float(0)}
+        for language in self.languages:
+            ccp = self.global_ccp[language]
+            logsum = 0
+            for char in x_vector:
+                if ccp.get(char) == None:
+                    ccp[char] = 0.5 / 27*0.5
+                logsum = logsum + math.log(ccp[char]) * x_vector[char]
+            log_likelihood[language] = logsum
+
+        prior = float((10 + 0.5)) / (30 + 3*0.5)
+        posterior = [log_likelihood[i] * prior for i in log_likelihood]
+        prediction = posterior.index(max(posterior))
+        return self.languages[prediction]
 
 
 class Project4():
@@ -131,7 +200,7 @@ class Project4():
         INFO("\nModel Accuracy =", (correct_count/all_count))
     
        
-       
+
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
@@ -242,7 +311,10 @@ if __name__ == "__main__":
     logging.getLogger().setLevel(logging.INFO)
     parser = argparse.ArgumentParser()
     parser.add_argument("--wxy", type=int, help='wxy')
-   
+    
+    lg = language()
+    # lg.run()
+
     pt = Project4()
     # pt.run()
     # pt.run_torch()
